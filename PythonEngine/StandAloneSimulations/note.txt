@@ -1,0 +1,2 @@
+These were used extensively when creating results, but the essence of the code is no different than what is found in Examples.ipynb.
+The folder is left here for completeness and for those truly interested.
