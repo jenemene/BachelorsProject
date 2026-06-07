@@ -5,7 +5,7 @@ This repository contains the Spatial Operator Algebra (SOA) physics engine devel
 
 ## Getting Started
 To evaluate the code and see the engine in action, please open the interactive tutorial:
-**[Open the Interactive Tutorial (tutorial.ipynb)](link-to-notebook)**
+https://github.com/jenemene/BachelorsProject/blob/main/PythonEngine/Examples.ipynb
 
 ## Requirements
 To run the notebook locally, install the dependencies:
