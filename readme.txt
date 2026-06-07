@@ -1,1 +1,12 @@
+# Multibody Dynamics Engine: Closed-Loop Tracked Vehicles
+*Bachelor's Thesis, Aarhus University (June 2026)*
 
+This repository contains the Spatial Operator Algebra (SOA) physics engine developed to simulate closed-loop continuous tracks with $O(\mathcal{N})$ scaling. 
+
+## Getting Started
+To evaluate the code and see the engine in action, please open the interactive tutorial:
+👉 **[Open the Interactive Tutorial (tutorial.ipynb)](link-to-notebook)**
+
+## Requirements
+To run the notebook locally, install the dependencies:
+`pip install -r requirements.txt`
