@@ -3,4 +3,3 @@ scipy
 matplotlib
 ipykernel
 pandas
-text

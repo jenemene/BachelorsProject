@@ -42,7 +42,7 @@ if sim_choice == '2':
     beta_bg = ask_param("Enter Baumgarte beta (stiffness)", 50.0, float)
     print("====================================\n")
     
-    args ake= [cpp_executable, str(n_bodies), str(time_step), str(end_time), str(alpha_bg), str(beta_bg)]
+    args = [cpp_executable, str(n_bodies), str(time_step), str(end_time), str(alpha_bg), str(beta_bg)]
     print(f"Crunching numbers in C++ {sim_title} Engine (n={n_bodies}, dt={time_step}, t_end={end_time}, alpha={alpha_bg}, beta={beta_bg})...")
 
 else:
