@@ -5,15 +5,15 @@ from utils import soa as SOA
 # Initialize multibody system
 robot = ob.MultiBodySystem()
 
-# --- 1. AUTOMATED STADIUM CHAIN GENERATION ---
+#chain genereation
 N_s = 6  # Number of straight links per top/bottom edge
 N_c = 6  # Number of curved links per left/right edge
 N = 2 * N_s + 2 * N_c  # Total = 24 links
 L = 0.2  # Length of each link
 
 # We need exactly 23 relative angles for the 23 spherical joints to close the loop:
-# To form a symmetric semi-circle with discrete links, the transitions from straight
-# to curve and curve to straight must be exactly half the angle of the inner curve joints (15°).
+# To form a symmetric semi-circle with discrete links, the transitions from straight to curved is 15 degrees. The inner joints forming half the 12-gon are 30 degrees
+# 
 rel_angles = (
     [0.0] * (N_s - 1) +               # Top straight (5 joints of 0°)
     [np.pi / (2 * N_c)] +             # Transition into right curve (15°)
@@ -24,7 +24,7 @@ rel_angles = (
     [np.pi / N_c] * (N_c - 1)         # Left curve internal joints (5 joints of 30°)
 )
 
-# --- 2. POSITIONING THE BASE ---
+# Base initial coordinate
 # Shift X left by half the straight section to center it at X=0
 start_x = - (N_s * L) / 2
 
@@ -36,8 +36,7 @@ pos_base = np.array([start_x, 0.0, start_z])
 # Rotate the base 90 degrees around Y so it lays perfectly horizontal
 quat_base = SOA.quatfromrev(np.pi/2, "y")
 
-# --- 3. BUILD THE SYSTEM PROGRAMMATICALLY ---
-# Loop backwards so the Base joint is added first, matching your old setup
+# For loop to build the initial config
 for i in range(N, 0, -1):
     if i == N:
         # BASE JOINT (FreeJoint)
@@ -64,13 +63,13 @@ A_base = np.zeros(6)
 A_base[-1] = 9.81 # Gravity in Z
 
 
-# Verify the geometry! You should see a perfect Stadium shape hovering over the sprockets.
+# initial state plot
 robot.plot_initial_state("closed")
 
 
 
-# k = 1e6 provides a solid surface
-# c = 2 * sqrt(k * m) = 2 * sqrt(1e6 * 2) ≈ 2828 for critical damping
+# k = 5e7 
+# c = 4000
 robot.simulate(
     tspan, V_base, A_base, 
     config="sprockets", 
@@ -79,7 +78,7 @@ robot.simulate(
 )
 robot.calc_and_plot_penetration()
 
-path = "JensTestMappe/jens_arbejdspakke2/results"
+path = "PythonEngine/results"
 file_name = "constraint_violation_sprockets"
 robot.CSV_creator(path, file_name, "tspan", "constraint_violation")
 

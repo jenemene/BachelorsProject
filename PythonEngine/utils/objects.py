@@ -202,23 +202,11 @@ class MultiBodySystem:
         d = np.block([np.zeros((3,3)), np.eye(3)])
         Q = np.block([d, -d])
 
-        # OLD CODE 
-        # #OPERTATIONAL SPACE INERTIA
-        # omega_diag, omega_n1, omega_1n = self.omega(theta_list,tau_bar,D,n)
+        #Calculaition of LAMBDA
 
-        # #calculating block entires
-        # Λ_11 = IR1 @ (link1.RBT.T @ omega_diag[1] @ link1.RBT) @IR1.T
-        # Λ_nn = IRn @ (omega_diag[n] @ IRn.T)
-        # Λ_n1 = IR1 @ (omega_n1 @ link1.RBT) @ IR1.T
-        # Λ_1n = IR1 @ (link1.RBT.T @ omega_1n) @ IR1.T
-
-
-        #nyt forsøg på noget ekstremt smart
         omega_diag = self.get_omega_diag(theta_list,tau_bar,D,n)
         omega_nn = omega_diag[n]
         omega_11 = omega_diag[1]
-        
-
         
 
         omega_n1 = self.get_omega_ij(n,1,theta_list,tau_bar,omega_diag,n)
@@ -246,7 +234,6 @@ class MultiBodySystem:
         IωIO = SOA.skewfromvec(IR1[:3,:3]@V_f[1][:3])
     
         Φ =  -(l_IOn - (l_IO1 + IR1[:3, :3]@link1.l_hinge))
-        #Φ_dot = -(IRn[:3, :3]@V_f[n][3:]  - (IR1[:3, :3]@V_f[1][3:] + IωIO@IR1[:3, :3]@link1.l_hinge))
         Φ_dot =   v_tip - v_base
         Φ_ddot =  -(IRn[:3, :3]@A_f[n][3:] - (IR1[:3, :3]@A_f[1][3:] + SOA.skewfromvec(IR1[:3, :3]@A_f[1][:3])@IR1[:3, :3]@link1.l_hinge + IωIO@IωIO@IR1[:3,:3]@link1.l_hinge))
 
@@ -254,12 +241,9 @@ class MultiBodySystem:
         α, β = BG_params
         f = SOA.baumgarte_stab(Φ, Φ_dot, Φ_ddot, α, β)
 
-        #solving for lagrange multipliers
-        #λ = -np.linalg.solve((Q@Λ_block@Q.T),f)
         
         λ = -np.linalg.solve((Q @ Λ_block @ Q.T), f)
         
-        #print(f"t={t:.2f}   |Φ|={np.linalg.norm(Φ):.2e}")
 
         #calculating f_c
         f_c_closed_loop_const = -Q.T@λ
@@ -286,7 +270,7 @@ class MultiBodySystem:
         theta_list, beta_list = self.unpack_state(state)
         n = len(self.links)
 
-        #generalized forced are used to simulate damping
+        #generalized forced can be used to simulate damping
         damping = 0.0
         tau_list = [-damping * beta for beta in beta_list]
     
@@ -345,7 +329,6 @@ class MultiBodySystem:
         IωIO = SOA.skewfromvec(IR1[:3,:3]@V_f[1][:3])
     
         Φ =  -(l_IOn - (l_IO1 + IR1[:3, :3]@link1.l_hinge))
-        #Φ_dot = -(IRn[:3, :3]@V_f[n][3:]  - (IR1[:3, :3]@V_f[1][3:] + IωIO@IR1[:3, :3]@link1.l_hinge))
         Φ_dot =   v_tip - v_base
         Φ_ddot =  -(IRn[:3, :3]@A_f[n][3:] - (IR1[:3, :3]@A_f[1][3:] + SOA.skewfromvec(IR1[:3, :3]@A_f[1][:3])@IR1[:3, :3]@link1.l_hinge + IωIO@IωIO@IR1[:3,:3]@link1.l_hinge))
 
@@ -353,9 +336,7 @@ class MultiBodySystem:
         alpha, beta = BG_params
         f = SOA.baumgarte_stab(Φ, Φ_dot, Φ_ddot, alpha, beta)
 
-        #solving for lagrange multipliers
-        #λ = -np.linalg.solve((Q@Λ_block@Q.T),f)
-        
+
         λ = -np.linalg.solve((Q @ Λ_block @ Q.T), f)
         #calculating f_c
         f_c_closed_loop_const = -Q.T@λ
@@ -366,6 +347,7 @@ class MultiBodySystem:
         f_c[1] = link1.RBT @ IR1.T @ f_c_closed_loop_const[:6] 
         f_c[n] = IRn.T @ f_c_closed_loop_const[6:]
 
+        #for measuring constraint violation
         if self._record_metrics:
             self.constraint_violation.append(np.linalg.norm(Φ))
 
@@ -379,12 +361,11 @@ class MultiBodySystem:
         return state_dot, V_f
 
     def get_state_dot_multiple_constraints(self,t,state,V_base,A_base,BG_params):
-        #Previous implementation was not physical, it did not account for the cross-coupling between constrints and simply solved them independently. This is not correct. 
 
         #to test multiple constraints a n=3 body pendulum will be implemented. The two constraints are
             #1. Closed loop constraint between 1-3
             #2. A driving constraint on k=2
-                #important note: This is not efficient at all, as the simulation scales with n_c³.
+                #important note: This is not efficient at all.
                 #The resulting lambda matrix will be 6*n_c X 6_n_c - that is it will be 18x18. Similarly, we will have to stack Q matrices and Lambda matrices. Q will be a 6x18 matrix.
         
 
@@ -459,12 +440,12 @@ class MultiBodySystem:
         Ω_22 = omega_diag[2]
         Ω_33 = omega_diag[n]
 
-        #calculation og off diagonal terms <--- HVIS DER ER EN FEJL SÅ START HER BED OMEGA UDREGNINGERNE (jeg har debugget de virker lowkey)
+        #calculation of off diagonal terms 
         Ω_21 = self.get_omega_ij(2, 1, theta_list, tau_bar, omega_diag,n)
         Ω_31 = self.get_omega_ij(3, 1, theta_list, tau_bar, omega_diag,n)
-        Ω_32 = self.get_omega_ij(3, 2, theta_list, tau_bar, omega_diag,n) #jeg vil jo mene at 32 bliver regnet for at regne 31, så man skal måske bare retunere en liste med dem ned af
+        Ω_32 = self.get_omega_ij(3, 2, theta_list, tau_bar, omega_diag,n) #31 gets calculated to compute 32, so this is the part that would need optimiziation
 
-        #time to build lambda matrix. Block entires are calculated
+        #Building Lambda Matrix. Block entires are calculated
         #constraint 1 - closed loop
         Λ_11 = IR1 @ (link1.RBT.T @ Ω_11 @ link1.RBT) @IR1.T
         Λ_33 = IRn @ (Ω_33 @ IRn.T)
@@ -503,7 +484,6 @@ class MultiBodySystem:
         α, β = BG_params
         Φ_BG = SOA.baumgarte_stab(Φ_system, Φ_dot_system, Φ_ddot_system, α, β)
 
-        #print(f"t={t:.2f}   |Φ|={np.linalg.norm(Φ_system):.2e}")
         
         #solving for lagrange multipliers
         M_eff = Q_sys @ Λ_sys @ Q_sys.T
@@ -557,6 +537,7 @@ class MultiBodySystem:
         P_plus, xi_plus, nu, A, V, G, D, beta_dot, tau_bar, agothic, bgothic,pRc_cache = \
             [([None]*(n+2)) for _ in range(12)] 
             
+        #boundary conditions
         P_plus[0] = np.zeros((6,6))
         xi_plus[0] = np.zeros((6,))
         tau_bar[0] = np.zeros((6,6))
@@ -566,7 +547,7 @@ class MultiBodySystem:
     
         # --- ATBI scatter ---- 
         for k in range(n, 0, -1):
-            if k == n:
+            if k == n: #edge case detection for free joints
                 RBT = SOA.RBT(self.l_from_origin) #l(k+1,k) as we need phi(k+1,k)
             else:
                 RBT = links[k+1].RBT
@@ -674,7 +655,7 @@ class MultiBodySystem:
         #intializing external force array. This could contain any external forces, but for now, its purely used for the forces coming from sprockets
         f_ext_body = [np.zeros(6,) for _ in range(n+2)]
 
-        # Unpack stiffness and damping
+        # Unpack stiffness and damping for penalty method
         k_stiffness = Penalty_params[0]
         c_damping = Penalty_params[1]
 
@@ -752,8 +733,7 @@ class MultiBodySystem:
             G[k] = np.linalg.solve(D[k], links[k].joint.H @ P).T 
             tau_bar[k] = np.eye(6) - G[k] @ links[k].joint.H
             P_plus[k] = tau_bar[k] @ P
-            # We incorporate our spatial penalty forces here as in algorithm from Jain (might need a bit of explenaton in the paper)
-            xi = links[k].RBT @ pRc @ xi_plus[k-1] + P @ agothic[k] + bgothic[k] - f_ext_body[k] 
+            xi = links[k].RBT @ pRc @ xi_plus[k-1] + P @ agothic[k] + bgothic[k] - f_ext_body[k] #spatial penalty forces added to xi
                     
             eps = tau[k] - links[k].joint.H @ xi
             nu[k] = np.linalg.solve(D[k], eps) 
@@ -844,7 +824,7 @@ class MultiBodySystem:
     def simulate_own_RK4(self, tspan, V_base, A_base, config="open", BG_params=None):
         # print(f"Simulation started ({config}-loop configuration)")
         # start_time = time.perf_counter()
-
+        #this is used for the order_n-val_scripts
         # Initial configuration
         state0 = self.get_initial_state()
         dt = tspan[1] - tspan[0]
@@ -865,18 +845,6 @@ class MultiBodySystem:
                 return self.get_state_dot_closed(t, state, V_base, A_base, BG_params)
             elif config == "open":
                 return self.get_state_dot(t, state, V_base, A_base)
-            elif config == "driver":
-                if BG_params is None:
-                    raise ValueError("BG_params must be provided for driver simulation.")
-                return self.get_state_dot_driver(t, state, V_base, A_base, BG_params)
-            elif config == "pentagon":
-                if BG_params is None:
-                    raise ValueError("BG_params must be provided for driver simulation.")
-                return self.get_state_dot_driver_pentagon(t, state, V_base, A_base, BG_params)
-            elif config == "driver_bottom":
-                if BG_params is None:
-                    raise ValueError("BG_params must be provided for driver simulation.")
-                return self.get_state_dot_driver_bottom(t, state, V_base, A_base, BG_params)
             else:
                 raise ValueError("Invalid config. Choose 'open', 'closed' or 'driver'.")
         
@@ -927,18 +895,6 @@ class MultiBodySystem:
                 return self.get_state_dot_closed(t, state, V_base, A_base, BG_params)
             elif config == "open":
                 return self.get_state_dot(t, state, V_base, A_base)
-            elif config == "driver":
-                if BG_params is None:
-                    raise ValueError("BG_params must be provided for driver simulation.")
-                return self.get_state_dot_driver(t, state, V_base, A_base, BG_params)
-            elif config == "pentagon":
-                if BG_params is None:
-                    raise ValueError("BG_params must be provided for driver simulation.")
-                return self.get_state_dot_driver_pentagon(t, state, V_base, A_base, BG_params)
-            elif config == "driver_bottom":
-                if BG_params is None:
-                    raise ValueError("BG_params must be provided for driver simulation.")
-                return self.get_state_dot_driver_bottom(t, state, V_base, A_base, BG_params)
             else:
                 raise ValueError("Invalid config. Choose 'open', 'closed' or 'driver'.")
         
@@ -968,7 +924,7 @@ class MultiBodySystem:
         omega = [None]*(n+2)
         theta = [None]*(n+2)
 
-        #theta_list is on a 0-index basis, for convenience i shift this. This is not effective in time, but for now is ok
+        #theta_list is on a 0-index basis, for convenience this is shifted. This is not effective in time, but for now is ok
 
         for i in range(1,n+1):
             theta[i] = theta_list[i-1]
@@ -1082,7 +1038,7 @@ class MultiBodySystem:
         if n == 1:
             axes = [axes] 
 
-        # Your standard RGB colors for X, Y, Z
+        # define colors
         colors = ['#B22222', "#336933", '#000080']
 
         for k in range(n):
@@ -1224,7 +1180,7 @@ class MultiBodySystem:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
-        # Defining plotlim based on the number of bodies, link length and configuration
+        # Defining plotlim based on the number of bodies, link length and configuration. This is just such that a closed loop configuration isnt too zoomed out
         total_link_length = sum(np.linalg.norm(link.l_hinge) for link in self.links)
         if config == "open":
             plotlim = total_link_length + np.linalg.norm(self.links[0].l_hinge)
@@ -1279,7 +1235,7 @@ class MultiBodySystem:
 
     def plot_static_snapshots_grid(self, num_snapshots=6, config="closed"):
         assert self.result is not None, "No simulation result found. Please run simulation first."
-
+        #for creatig nice plots with tracings. Is hardcoded for now
         total_frames = self.result.shape[1]
         snapshot_indices = np.linspace(0, total_frames - 1, num_snapshots, dtype=int)
 
@@ -1704,6 +1660,7 @@ class MultiBodySystem:
             theta_list, _ = self.unpack_state(state)
             positions = SOA.compute_pos_in_inertial_frame(theta_list, self.links, n)
             
+            #hardcoded sprocket geometry. could be made into an input if wanted
             sprockets = (
                  (np.array([-0.6, 0.0, 0.0]) , 0.3864), # Left Sprocket
                  (np.array([0.6, 0.0, 0.0]), 0.3864)   # Right Sprocket
