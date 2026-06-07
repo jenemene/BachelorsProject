@@ -1,0 +1,14 @@
+[
+{
+  "directory": "/home/jenz/Desktop/SOAinC/build",
+  "command": "/usr/bin/g++  -I/home/jenz/Desktop/SOAinC/include -isystem /usr/include/eigen3 -O3 -DNDEBUG -march=native -O3 -DNDEBUG -o CMakeFiles/sim_open.dir/src/main_open.cpp.o -c /home/jenz/Desktop/SOAinC/src/main_open.cpp",
+  "file": "/home/jenz/Desktop/SOAinC/src/main_open.cpp",
+  "output": "CMakeFiles/sim_open.dir/src/main_open.cpp.o"
+},
+{
+  "directory": "/home/jenz/Desktop/SOAinC/build",
+  "command": "/usr/bin/g++  -I/home/jenz/Desktop/SOAinC/include -isystem /usr/include/eigen3 -O3 -DNDEBUG -march=native -O3 -DNDEBUG -o CMakeFiles/sim_closed.dir/src/main_closed.cpp.o -c /home/jenz/Desktop/SOAinC/src/main_closed.cpp",
+  "file": "/home/jenz/Desktop/SOAinC/src/main_closed.cpp",
+  "output": "CMakeFiles/sim_closed.dir/src/main_closed.cpp.o"
+}
+]

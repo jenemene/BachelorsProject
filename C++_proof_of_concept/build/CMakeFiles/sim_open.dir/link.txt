@@ -1,0 +1,1 @@
+/usr/bin/g++ -O3 -DNDEBUG -march=native -O3 -DNDEBUG CMakeFiles/sim_open.dir/src/main_open.cpp.o -o sim_open 

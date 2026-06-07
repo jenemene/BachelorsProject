@@ -1,0 +1,4 @@
+/home/jenz/Desktop/SOAinC/build/CMakeFiles/sim_open.dir
+/home/jenz/Desktop/SOAinC/build/CMakeFiles/sim_closed.dir
+/home/jenz/Desktop/SOAinC/build/CMakeFiles/edit_cache.dir
+/home/jenz/Desktop/SOAinC/build/CMakeFiles/rebuild_cache.dir

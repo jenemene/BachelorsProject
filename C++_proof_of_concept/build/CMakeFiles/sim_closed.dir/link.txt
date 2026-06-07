@@ -1,0 +1,1 @@
+/usr/bin/g++ -O3 -DNDEBUG -march=native -O3 -DNDEBUG CMakeFiles/sim_closed.dir/src/main_closed.cpp.o -o sim_closed 
