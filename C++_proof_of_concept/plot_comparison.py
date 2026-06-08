@@ -9,7 +9,7 @@ import sys
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # --- File Paths ---
-cpp_csv = "pendulum_data.csv"
+cpp_csv = os.path.join(script_dir, "pendulum_data.csv")
 adams_csv = os.path.join(script_dir, "closed_3_body_adams_results(in).csv")
 savefig = True
 
