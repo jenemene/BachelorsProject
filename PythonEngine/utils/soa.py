@@ -148,217 +148,8 @@ def normalize_quaternions(q):
     norms = np.linalg.norm(q_reshaped, axis=1, keepdims=True)
     q_reshaped /= norms
     return q_reshaped.reshape(-1)
-        
-def ATBI(state,tau_vec,n,link):
-        #inputs
-        #state: np.array on form [theta_dot, beta]
-        #tau_vec: generalized forces as np.array
-        #l_hinge: vector from O_k to O+_k-1 in k frame (this doesnt matter as they are identical in our case)
-        #m: mass of length. Ensure that you dont have a very long and slender link with a small mass to avoid very stiff elements
-        #type: hinge-type for all links. Right now its purely spherical that is implemented
-        #n: no_bodies
-        #link: Instantiate a link using the SimpleLink class and pass it
-        #outputs beta_dot
-
-        #unpacking state
-        theta_vec = state[:4*n]
-        beta_vec  = state[4*n:]
-
-        theta = [None]*(n+2)
-        beta  = [None]*(n+2)
-        tau   = [None]*(n+2)
-
-        # boundary conditions - det kan diskuteres om man behøver i begge ender for dem alle, det gør man vidst nok ikke
-        theta[0]   = np.zeros(4)
-        theta[n+1] = np.zeros(4)
-
-        beta[0]    = np.zeros(3)
-        beta[n+1]  = np.zeros(3)
-
-        tau[0]     = np.zeros(3)
-        tau[n+1]   = np.zeros(3)
-
-        #unpacking interior 
-        for i in range(1, n+1):
-
-            idxq = 4*(i-1)
-            idxw = 3*(i-1)
-
-            theta[i] = theta_vec[idxq:idxq+4]
-            beta[i]  = beta_vec[idxw:idxw+3]
-            tau[i]   = tau_vec[3*(i-1):3*i]
-
-         #if damping is to be implemented, then add a -b*beta[i] component in the for loop, or just do a simple tau[n] = -b*beta[n] if you only wish to damp body attatched to ground   
-
-        for i in range(1, n+1):
-            # ... unpacking idx ...
-            
-            # Calculate damping torque (viscous friction)
-            b = 0 # Damping coefficient
-            damping_tau = -b * beta[i]
-            
-            # Add it to any other external torques (currently zero)
-            tau[i] = tau_vec[3*(i-1):3*i] + damping_tau
-
-        #storage
-        P_plus = [None]*(n+2)
-        xi_plus = [None]*(n+2)
-        nu = [None]*(n+2)
-        A = [None]*(n+2)
-        V = [None]*(n+2)
-        G = [None]*(n+2)
-        D = [None]*(n+2)
-        beta_dot = [None]*(n+2)
-        tau_bar = [None]*(n+2)
-        agothic = [None]*(n+2)
-        bgothic = [None]*(n+2)
-
-        #boundary conditions on spatial operator quantities
-        P_plus[0] = np.zeros((6,6))
-        xi_plus[0] = np.zeros((6,))
-        tau_bar[0] = P_plus[0]
-        A[n+1] = np.array([0, 0, 0, 0, 0, 9.81]) # Psudo gravity in the last frame, which is the inertial frame
-        V[n+1] = np.zeros((6,))
-
-        #kinematics scatter
-
-        for k in range(n,0,-1):
-            #rotation matrices
-            pRc = spatialrotfromquat(theta[k]) 
-            cRp = pRc.T #from parent to child -> this is the direction we are going right now
-
-            #hinge contribtuion
-            delta_V = link.H.T @ beta[k]
-
-            #spatial velocity
-            V[k] = cRp @ link.RBT.T @ V[k+1] + delta_V
-
-            #coriolois acc
-            agothic[k] = spatialskewtilde(V[k]) @ link.H.T @ beta[k]
-
-            #gyroscopic term
-            bgothic[k] = spatialskewbar(V[k]) @ link.M @ V[k]
-
-        #ATBI gather 
-        for k in range(1,n+1): #n+1 as python does not include end index
-
-            #rotations
-            pRc = spatialrotfromquat(theta[k-1]) #using k-1 as orientation is defined as k+1_q_k and we need k_q_k-1
-            cRp = pRc.T 
-
-            P = link.RBT @ pRc @ P_plus[k-1] @ cRp@link.RBT.T + link.M
-            D[k] = link.H @ P @ link.H.T
-            G[k] = np.linalg.solve(D[k], link.H @ P).T #P @ link.H.T @ np.linalg.inv(D)
-            tau_bar[k] = np.eye(6) - G[k] @ link.H
-            P_plus[k] = tau_bar[k] @ P
-            xi = link.RBT @ pRc @ xi_plus[k-1] + P @ agothic[k] + bgothic[k]
-            eps = tau[k] - link.H@xi
-            nu[k] = np.linalg.solve(D[k], eps) #= np.linalg.inv(D)@eps
-            xi_plus[k] = xi + G[k]@eps
-
-        #ATBI scatter
-        for k in range(n,0,-1):
-            #rotations
-            pRc = spatialrotfromquat(theta[k])
-            cRp = pRc.T 
-
-            A_plus = cRp@ link.RBT.T @A[k+1]
-            beta_dot[k] = nu[k] - G[k].T @ A_plus
-            A[k] = A_plus + link.H.T @ beta_dot[k] + agothic[k]
-
-        return A, V, beta_dot, tau_bar, D, G
-    
-def omega(theta_vec,link,tau_bar,D,n):
-    #unpacking generalized coordinates
-    theta = [None]*(n+2)
-    theta[0] = np.zeros(4)
-    theta[n+1] = np.zeros(4)
-
-    #unpacking interior 
-    for i in range(1, n+1):
-        idxq = 4*(i-1)
-        theta[i] = theta_vec[idxq:idxq+4]
-
-    #space allocation
-    gamma = [None]*(n+2)
-    omega = [None]*(n+2)
-    
-    #boundary condition
-    gamma[n+1] = np.zeros((6,6))
-    
-    for k in range (n,0,-1):
-    #calculating diagonal entries of omega
-        pRc = spatialrotfromquat(theta[k]) #rotations
-        cRp = pRc.T
-
-        ##### ---------- ÆNDRET LINJER MED NYE ROTATIONER, GAMLE LINJE ER OVER DENNE --------------------------
-        gamma[k] = tau_bar[k].T @ cRp @ link.RBT.T @ gamma[k+1] @ link.RBT @ pRc @ tau_bar[k] + link.H.T @ np.linalg.solve(D[k],link.H)
-        ##### -------------------------------------------------------------------------------------------------  
-
-    #assigning these
-    omega[n] = gamma[n]
-
-    #calculating off diagonal entries (and inserting the one on the dignoal)
-        
-    #de to loops kan nok godt kombineres. 
-    for k in range (n-1,0,-1):
-        pRc = spatialrotfromquat(theta[k]) #rotations
-        cRp = pRc.T
-        #OLD: psi = link.RBT @ tau_bar[k]
-        #OLD: omega[k] = cRp @ omega[k+1] @ pRc @ psi
-
-        # New?:
-        omega[k] = cRp @ omega[k+1] @ link.RBT @ pRc @tau_bar[k]
-
-    omega_nn = gamma[n]
-    omega_n1 = omega[1]
-    omega_1n = omega_n1.T
-    omega_11 = gamma[1]
-
-    return omega_nn, omega_n1, omega_1n,omega_11
-
-def beta_dot_delta(theta_vec,tau_bar,link,n,D,f_c,G):
-
-    #unpacking generalized coordinates
-    theta = [None]*(n+2)
-    theta[0] = np.zeros(4)
-    theta[n+1] = np.zeros(4)
-
-    #unpacking interior 
-    for i in range(1, n+1):
-        idxq = 4*(i-1)
-        theta[i] = theta_vec[idxq:idxq+4]
-
-
-    #f_c comes with RBT already applied where nessecary
-
-    xi_delta = [None]*(n+2)
-    beta_dot_delta = [None] * (n+2)
-    nu = [None]*(n+2)
-    lambda_list = [None]*(n+2) #NOT TO BE CONFUSED WITH LAGRANGE MULTIPLIERS; THIS IS JUST THE NOTATION FROM THE BOOK
-
-
-    #boundary cond on xi_delta and lambda_list
-    xi_delta[0] = np.zeros(6,)
-    lambda_list[n+1] = np.zeros(6,)
-
-    for k in range (1,n+1):
-        pRc = spatialrotfromquat(theta[k-1]) #using k-1 as orientation is defined as k+1_q_k and we need k_q_k-1
-        cRp = pRc.T 
-        
-        xi_delta[k] = link.RBT@pRc@tau_bar[k-1]@xi_delta[k-1] - f_c[k] #f_c er allerede rykket ud, derfor RBT er udeladt her
-        nu[k] = np.linalg.solve(D[k],link.H@xi_delta[k]) #skulle være ok den her linje
-
-    for k in range(n,0,-1):
-        pRc = spatialrotfromquat(theta[k]) 
-        cRp = pRc.T      
-
-        lambda_list[k] = tau_bar[k].T @ cRp @ link.RBT.T @ lambda_list[k+1]+ link.H.T@nu[k]
-
-
-        beta_dot_delta[k] = nu[k] - G[k].T@cRp@link.RBT.T@lambda_list[k+1]
-
-    return beta_dot_delta
+ 
+###----------------- BENEATH HERE IS LEGACY CODE ----------------- ### 
 
 def get_rotation_tip_to_body_I(theta_list, links, n):   
     # Initialize total rotation as Identity (Body 1 in Body 1 frame)
@@ -619,3 +410,215 @@ def get_rotation_body_to_I(theta_list, links, n, body_index):
                   [np.zeros((3,3)),R_total]])
 
     return R
+
+       
+def ATBI(state,tau_vec,n,link):
+        #inputs
+        #state: np.array on form [theta_dot, beta]
+        #tau_vec: generalized forces as np.array
+        #l_hinge: vector from O_k to O+_k-1 in k frame (this doesnt matter as they are identical in our case)
+        #m: mass of length. Ensure that you dont have a very long and slender link with a small mass to avoid very stiff elements
+        #type: hinge-type for all links. Right now its purely spherical that is implemented
+        #n: no_bodies
+        #link: Instantiate a link using the SimpleLink class and pass it
+        #outputs beta_dot
+
+        #unpacking state
+        theta_vec = state[:4*n]
+        beta_vec  = state[4*n:]
+
+        theta = [None]*(n+2)
+        beta  = [None]*(n+2)
+        tau   = [None]*(n+2)
+
+        # boundary conditions - det kan diskuteres om man behøver i begge ender for dem alle, det gør man vidst nok ikke
+        theta[0]   = np.zeros(4)
+        theta[n+1] = np.zeros(4)
+
+        beta[0]    = np.zeros(3)
+        beta[n+1]  = np.zeros(3)
+
+        tau[0]     = np.zeros(3)
+        tau[n+1]   = np.zeros(3)
+
+        #unpacking interior 
+        for i in range(1, n+1):
+
+            idxq = 4*(i-1)
+            idxw = 3*(i-1)
+
+            theta[i] = theta_vec[idxq:idxq+4]
+            beta[i]  = beta_vec[idxw:idxw+3]
+            tau[i]   = tau_vec[3*(i-1):3*i]
+
+         #if damping is to be implemented, then add a -b*beta[i] component in the for loop, or just do a simple tau[n] = -b*beta[n] if you only wish to damp body attatched to ground   
+
+        for i in range(1, n+1):
+            # ... unpacking idx ...
+            
+            # Calculate damping torque (viscous friction)
+            b = 0 # Damping coefficient
+            damping_tau = -b * beta[i]
+            
+            # Add it to any other external torques (currently zero)
+            tau[i] = tau_vec[3*(i-1):3*i] + damping_tau
+
+        #storage
+        P_plus = [None]*(n+2)
+        xi_plus = [None]*(n+2)
+        nu = [None]*(n+2)
+        A = [None]*(n+2)
+        V = [None]*(n+2)
+        G = [None]*(n+2)
+        D = [None]*(n+2)
+        beta_dot = [None]*(n+2)
+        tau_bar = [None]*(n+2)
+        agothic = [None]*(n+2)
+        bgothic = [None]*(n+2)
+
+        #boundary conditions on spatial operator quantities
+        P_plus[0] = np.zeros((6,6))
+        xi_plus[0] = np.zeros((6,))
+        tau_bar[0] = P_plus[0]
+        A[n+1] = np.array([0, 0, 0, 0, 0, 9.81]) # Psudo gravity in the last frame, which is the inertial frame
+        V[n+1] = np.zeros((6,))
+
+        #kinematics scatter
+
+        for k in range(n,0,-1):
+            #rotation matrices
+            pRc = spatialrotfromquat(theta[k]) 
+            cRp = pRc.T #from parent to child -> this is the direction we are going right now
+
+            #hinge contribtuion
+            delta_V = link.H.T @ beta[k]
+
+            #spatial velocity
+            V[k] = cRp @ link.RBT.T @ V[k+1] + delta_V
+
+            #coriolois acc
+            agothic[k] = spatialskewtilde(V[k]) @ link.H.T @ beta[k]
+
+            #gyroscopic term
+            bgothic[k] = spatialskewbar(V[k]) @ link.M @ V[k]
+
+        #ATBI gather 
+        for k in range(1,n+1): #n+1 as python does not include end index
+
+            #rotations
+            pRc = spatialrotfromquat(theta[k-1]) #using k-1 as orientation is defined as k+1_q_k and we need k_q_k-1
+            cRp = pRc.T 
+
+            P = link.RBT @ pRc @ P_plus[k-1] @ cRp@link.RBT.T + link.M
+            D[k] = link.H @ P @ link.H.T
+            G[k] = np.linalg.solve(D[k], link.H @ P).T #P @ link.H.T @ np.linalg.inv(D)
+            tau_bar[k] = np.eye(6) - G[k] @ link.H
+            P_plus[k] = tau_bar[k] @ P
+            xi = link.RBT @ pRc @ xi_plus[k-1] + P @ agothic[k] + bgothic[k]
+            eps = tau[k] - link.H@xi
+            nu[k] = np.linalg.solve(D[k], eps) #= np.linalg.inv(D)@eps
+            xi_plus[k] = xi + G[k]@eps
+
+        #ATBI scatter
+        for k in range(n,0,-1):
+            #rotations
+            pRc = spatialrotfromquat(theta[k])
+            cRp = pRc.T 
+
+            A_plus = cRp@ link.RBT.T @A[k+1]
+            beta_dot[k] = nu[k] - G[k].T @ A_plus
+            A[k] = A_plus + link.H.T @ beta_dot[k] + agothic[k]
+
+        return A, V, beta_dot, tau_bar, D, G
+    
+def omega(theta_vec,link,tau_bar,D,n):
+    #unpacking generalized coordinates
+    theta = [None]*(n+2)
+    theta[0] = np.zeros(4)
+    theta[n+1] = np.zeros(4)
+
+    #unpacking interior 
+    for i in range(1, n+1):
+        idxq = 4*(i-1)
+        theta[i] = theta_vec[idxq:idxq+4]
+
+    #space allocation
+    gamma = [None]*(n+2)
+    omega = [None]*(n+2)
+    
+    #boundary condition
+    gamma[n+1] = np.zeros((6,6))
+    
+    for k in range (n,0,-1):
+    #calculating diagonal entries of omega
+        pRc = spatialrotfromquat(theta[k]) #rotations
+        cRp = pRc.T
+
+        ##### ---------- ÆNDRET LINJER MED NYE ROTATIONER, GAMLE LINJE ER OVER DENNE --------------------------
+        gamma[k] = tau_bar[k].T @ cRp @ link.RBT.T @ gamma[k+1] @ link.RBT @ pRc @ tau_bar[k] + link.H.T @ np.linalg.solve(D[k],link.H)
+        ##### -------------------------------------------------------------------------------------------------  
+
+    #assigning these
+    omega[n] = gamma[n]
+
+    #calculating off diagonal entries (and inserting the one on the dignoal)
+        
+    #de to loops kan nok godt kombineres. 
+    for k in range (n-1,0,-1):
+        pRc = spatialrotfromquat(theta[k]) #rotations
+        cRp = pRc.T
+        #OLD: psi = link.RBT @ tau_bar[k]
+        #OLD: omega[k] = cRp @ omega[k+1] @ pRc @ psi
+
+        # New?:
+        omega[k] = cRp @ omega[k+1] @ link.RBT @ pRc @tau_bar[k]
+
+    omega_nn = gamma[n]
+    omega_n1 = omega[1]
+    omega_1n = omega_n1.T
+    omega_11 = gamma[1]
+
+    return omega_nn, omega_n1, omega_1n,omega_11
+
+def beta_dot_delta(theta_vec,tau_bar,link,n,D,f_c,G):
+
+    #unpacking generalized coordinates
+    theta = [None]*(n+2)
+    theta[0] = np.zeros(4)
+    theta[n+1] = np.zeros(4)
+
+    #unpacking interior 
+    for i in range(1, n+1):
+        idxq = 4*(i-1)
+        theta[i] = theta_vec[idxq:idxq+4]
+
+
+    #f_c comes with RBT already applied where nessecary
+
+    xi_delta = [None]*(n+2)
+    beta_dot_delta = [None] * (n+2)
+    nu = [None]*(n+2)
+    lambda_list = [None]*(n+2) #NOT TO BE CONFUSED WITH LAGRANGE MULTIPLIERS; THIS IS JUST THE NOTATION FROM THE BOOK
+
+
+    #boundary cond on xi_delta and lambda_list
+    xi_delta[0] = np.zeros(6,)
+    lambda_list[n+1] = np.zeros(6,)
+
+    for k in range (1,n+1):
+        pRc = spatialrotfromquat(theta[k-1]) #using k-1 as orientation is defined as k+1_q_k and we need k_q_k-1
+        cRp = pRc.T 
+        
+        xi_delta[k] = link.RBT@pRc@tau_bar[k-1]@xi_delta[k-1] - f_c[k] #f_c er allerede rykket ud, derfor RBT er udeladt her
+        nu[k] = np.linalg.solve(D[k],link.H@xi_delta[k]) #skulle være ok den her linje
+
+    for k in range(n,0,-1):
+        pRc = spatialrotfromquat(theta[k]) 
+        cRp = pRc.T      
+
+        lambda_list[k] = tau_bar[k].T @ cRp @ link.RBT.T @ lambda_list[k+1]+ link.H.T@nu[k]
+
+
+        beta_dot_delta[k] = nu[k] - G[k].T@cRp@link.RBT.T@lambda_list[k+1]
+
+    return beta_dot_delta
