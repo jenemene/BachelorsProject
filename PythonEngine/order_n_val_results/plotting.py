@@ -159,7 +159,7 @@ def statistical_plot_with_lin_fit(csv_filename, savefig=False):
         
     plt.show()
 
-csv_filename = "PythonEngine/order_n_val_results/solver_benchmark_results_closed.csv"
+csv_filename = "PythonEngine/order_n_val_results/solver_benchmark_results.csv"
 
 statistical_plot_with_lin_fit(csv_filename, savefig=True)
 plot_TE_delta(csv_filename)
