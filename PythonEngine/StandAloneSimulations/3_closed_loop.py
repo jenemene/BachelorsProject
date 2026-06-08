@@ -37,7 +37,7 @@ joint3.w_init = np.array([0,1,0,0,0,0])
 link3 = ob.Link(mass=20.0, l_hinge=np.array([0, 0, 0.2]), joint=joint3)
 
 #adding link (first link is added to the base, second link is added to the first link and so on)
-robot.add_link(link3)
+robot.add_link(link3_fixed)
 robot.add_link(link2)
 robot.add_link(link1)
 
@@ -51,7 +51,7 @@ A_base = np.zeros(6)
 A_base[-1] = 9.81 #simulating gravitcompute_pos_iny in z
 
 robot.plot_initial_state("closed")
-robot.simulate(tspan,V_base,A_base,"closed",BG_params=[200,500])
+robot.simulate(tspan,V_base,A_base,"closed",BG_params=[0.1,500])
 robot.calc_TE_error()
 robot.plot_attribute("TE_error")
 robot.plot_gen_velocities(savefig=False)
