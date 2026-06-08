@@ -1,4 +1,9 @@
 #imports
+
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 from utils import objects as ob
 from utils import soa as SOA

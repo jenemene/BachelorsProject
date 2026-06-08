@@ -27,7 +27,7 @@ n_bodies_list = [1] + list(range(n_start, n_end+1, step_length))
 
 
 # Initialize CSV file and write the header
-csv_filename = "Arbejdspakke2/order_n_val_results/solver_benchmark_results.csv"
+csv_filename = "PythonEngine/order_n_val_results/solver_benchmark_results.csv"
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(["Num_Bodies", "Run_Index", "Solver_RK4_Time", "Solver_RK45_Time", "TE_delta_rk4"])
