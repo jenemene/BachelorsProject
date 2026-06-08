@@ -33,9 +33,12 @@ n_bodies = ask_param("Enter number of bodies (n)", 3, int)
 time_step = ask_param("Enter time step (dt)", 0.001, float)
 end_time = ask_param("Enter simulation duration in seconds (t_end)", 2.0, float)
 
+# Get the absolute path to the directory containing this script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
 # 1. Route to the correct C++ Physics Engine and ask for specific params
 if sim_choice == '2':
-    cpp_executable = "/home/jenz/Desktop/SOAinC/build/sim_closed"
+    cpp_executable = os.path.join(script_dir, "build", "sim_closed")
     sim_title = "Closed-Loop"
     print("\n--- Closed-Loop Tuning ---")
     alpha_bg = ask_param("Enter Baumgarte alpha (damping)", 50.0, float)
@@ -46,14 +49,14 @@ if sim_choice == '2':
     print(f"Crunching numbers in C++ {sim_title} Engine (n={n_bodies}, dt={time_step}, t_end={end_time}, alpha={alpha_bg}, beta={beta_bg})...")
 
 else:
-    cpp_executable = "/home/jenz/Desktop/SOAinC/build/sim_open"
+    cpp_executable = os.path.join(script_dir, "build", "sim_open")
     sim_title = "Open-Loop"
     print("====================================\n")
     
     args = [cpp_executable, str(n_bodies), str(time_step), str(end_time)]
     print(f"Crunching numbers in C++ {sim_title} Engine (n={n_bodies}, dt={time_step}, t_end={end_time})...")
 
-csv_file = "/home/jenz/Desktop/SOAinC/pendulum_data.csv"
+csv_file = "pendulum_data.csv"
 
 if not os.path.exists(cpp_executable):
     print(f"Error: Could not find C++ executable at {cpp_executable}. Did you build it?")

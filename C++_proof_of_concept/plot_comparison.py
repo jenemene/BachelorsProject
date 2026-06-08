@@ -7,9 +7,10 @@ import sys
 
 #coded with help from Gemini Pro 3.1 VS-code extension.
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
 # --- File Paths ---
-cpp_csv = "/home/jenz/Desktop/SOAinC/pendulum_data.csv"
-adams_csv = "/home/jenz/Desktop/SOAinC/closed_3_body_adams_results(in).csv"
+cpp_csv = "pendulum_data.csv"
+adams_csv = os.path.join(script_dir, "closed_3_body_adams_results(in).csv")
 savefig = True
 
 # --- 1. Load C++ Engine Data ---

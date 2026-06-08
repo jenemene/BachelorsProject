@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     PendulumState temp_state = state; 
 
     // --- 3. Dynamic CSV Setup ---. This i dont know. Entirely vibecoded.
-    std::ofstream data_file("/home/jenz/Desktop/SOAinC/pendulum_data.csv");
+    std::ofstream data_file("pendulum_data.csv");
     if (!data_file.is_open()) {
         std::cerr << "Failed to open data file!" << std::endl;
         return 1;
