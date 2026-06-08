@@ -1,5 +1,5 @@
 # Multibody Dynamics Engine: Closed-Loop Tracked Vehicles
-*Bachelor's Thesis, Aarhus University (June 2026)*
+*Bachelor's Thesis, Aarhus University (June 2026), Kasper Dahl and Jens Trinderup*
 
 This repository contains the Spatial Operator Algebra (SOA) physics engine developed to simulate closed-loop continuous tracks with $O(\mathcal{N})$ scaling. 
 
